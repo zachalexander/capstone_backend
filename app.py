@@ -436,7 +436,7 @@ def model(address):
         print('break even low', even_pt_lo)
         print('break even high', even_pt_hi)
 
-        display = projection.to_json()
+        display = projection.to_json(orient="records")
         # parsed = json.loads(display)
         # json.dumps(parsed, indent=4)
         #############################################################################################
@@ -448,7 +448,7 @@ def model(address):
 
     json_data_list.append(display)
 
-    response = jsonify(json_data_list)
+    response = jsonify(json.dumps(json_data_list))
     response.headers.add('Access-Control-Allow-Origin', '*')
 
     return response
