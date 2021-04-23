@@ -444,11 +444,7 @@ def model(address):
                     
     ##### FINAL RETURN JSON #####
 
-    json_data_list = []
-
-    json_data_list.append(display)
-
-    response = jsonify(json.dumps(json_data_list))
+    response = display
     response.headers.add('Access-Control-Allow-Origin', '*')
 
     return response
