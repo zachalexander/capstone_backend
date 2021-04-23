@@ -444,7 +444,11 @@ def model(address):
                     
     ##### FINAL RETURN JSON #####
 
-    response = jsonify(display)
+    json_data_list = []
+
+    json_data_list.append(display)
+
+    response = jsonify(json_data_list)
     response.headers.add('Access-Control-Allow-Origin', '*')
 
     return response
@@ -471,8 +475,6 @@ def selenium_check():
         CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
         chrome_bin = os.environ.get('GOOGLE_CHROME_SHIM', None)
 
-        # chrome_bin = os.environ.get("GOOGLE_CHROME_BIN", "chromedriver")
-        # chrome_path = os.environ.get("CHROMEDRIVER_PATH", "chromedriver")
         options = webdriver.ChromeOptions()
         options.binary_location = chrome_bin
         options.add_argument(" — disable-gpu")
