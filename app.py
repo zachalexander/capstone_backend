@@ -469,12 +469,15 @@ def selenium_check():
         json.dumps(coords_json)
 
         chrome_bin = os.environ.get("GOOGLE_CHROME_BIN", "chromedriver")
+        chrome_path = os.environ.get("CHROMEDRIVER_PATH")
         options = webdriver.ChromeOptions()
         options.binary_location = chrome_bin
         options.add_argument(" — disable-gpu")
         options.add_argument(" — no-sandbox")
         options.add_argument(" — headless")
-        driver = webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, chrome_options=options)
+
+        #execution? path
+        driver = webdriver.Chrome(executable_path=chrome_path, chrome_options=options)
         driver.set_window_size(800,1000)
         driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
         
