@@ -61,12 +61,14 @@ class User(db.Model):
     sqr_footage = db.Column(db.Integer)
     panel_area = db.Column(db.Integer)
     azimuth = db.Column(db.Integer)
+    year_built = db.Column(db.Integer)
 
-    def __init__(self, address, sqr_footage, panel_area, azimuth):
+    def __init__(self, address, sqr_footage, panel_area, azimuth, year_built):
         self.address = address
         self.sqr_footage = sqr_footage
         self.panel_area = panel_area
         self.azimuth = azimuth
+        self.year_built = year_built
 
 class SunRoof(db.Model):
     __tablename__ = 'sunroof'
@@ -116,7 +118,9 @@ def model(address):
 
         #Daily_bool below directs whether to use stock Albany data or pull from NSRDB API (True = stock)
         daily_bool = True
-        Year_Blt = 1973
+
+        Year_Blt = user_inputs.year_built
+        # Year_Blt = 1973
         price = 0.1827
 
         #coordinates of Albany, NY (29.42412, -98.49363)
@@ -503,7 +507,7 @@ def post_input():
         jsonify(frontend_input)
 
         if db.session.query(User).filter(User.address == frontend_input['address']).count() == 0:
-            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'])
+            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'], frontend_input['year_built'])
             db.session.add(user)
             db.session.commit()
         else:
@@ -511,6 +515,7 @@ def post_input():
             setattr(user, 'sqr_footage', frontend_input['house_footage'])
             setattr(user, 'panel_area', frontend_input['panel_area'])
             setattr(user, 'azimuth', frontend_input['azimuth'])
+            setattr(user, 'year_built', frontend_input['year_built'])
             db.session.commit()
 
     return jsonify('success')
