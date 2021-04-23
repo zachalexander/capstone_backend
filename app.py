@@ -89,7 +89,6 @@ def user_id(address):
 
 
 @app.route('/calc/<address>', methods=['GET'])
-@cross_origin()
 def model(address):
 
     if (db.session.query(User).filter(User.address == address).count() == 0):
@@ -444,16 +443,16 @@ def model(address):
 
                     
     ##### FINAL RETURN JSON #####
-    return jsonify(display)
 
+    response = jsonify(display)
+    response.headers.add('Access-Control-Allow-Origin', '*')
 
-
+    return response
 
 
 
 
 @app.route('/coords', methods=['POST'])
-@cross_origin()
 def selenium_check():
     if request.method == "POST":
         coordinates = request.get_json()
@@ -498,11 +497,13 @@ def selenium_check():
             setattr(sunroof_estimate, 'estimate', square_footage_available)
             db.session.commit()
 
-    return jsonify('success')
+    response = jsonify('success')
+    response.headers.add('Access-Control-Allow-Origin', '*')
+
+    return response
 
 
 @app.route('/posts', methods=['POST'])
-@cross_origin()
 def post_input():
     if request.method == 'POST':
 
@@ -521,10 +522,12 @@ def post_input():
             setattr(user, 'year_built', frontend_input['year_built'])
             db.session.commit()
 
-    return jsonify('success')
+    response = jsonify('success')
+    response.headers.add('Access-Control-Allow-Origin', '*')
+
+    return response
 
 @app.route('/square-feet/<address>', methods=['GET'])
-@cross_origin()
 def getSunroof_data(address):
     if request.method == 'GET':
         if db.session.query(SunRoof).filter(SunRoof.address == address).count() == 0:
@@ -533,8 +536,10 @@ def getSunroof_data(address):
             estimate = db.session.query(SunRoof).filter(SunRoof.address == address).first()
             print(estimate.estimate)
 
+    response = jsonify(estimate.estimate)
+    response.headers.add('Access-Control-Allow-Origin', '*')
 
-    return jsonify(estimate.estimate)
+    return response
 
 
 if __name__ == '__main__':
