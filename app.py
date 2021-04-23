@@ -31,10 +31,10 @@ import math
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'dev'
+ENV = 'prod'
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
-REMOTE_DB_URL = os.getenv("REMOTE_DB_URL")
+REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
 
 # Setting database configs
 if ENV == 'dev':
@@ -89,6 +89,7 @@ def user_id(address):
 
 
 @app.route('/calc/<address>', methods=['GET'])
+@cross_origin()
 def model(address):
 
     if (db.session.query(User).filter(User.address == address).count() == 0):
@@ -452,6 +453,7 @@ def model(address):
 
 
 @app.route('/coords', methods=['POST'])
+@cross_origin()
 def selenium_check():
     if request.method == "POST":
         coordinates = request.get_json()
@@ -500,6 +502,7 @@ def selenium_check():
 
 
 @app.route('/posts', methods=['POST'])
+@cross_origin()
 def post_input():
     if request.method == 'POST':
 
@@ -521,6 +524,7 @@ def post_input():
     return jsonify('success')
 
 @app.route('/square-feet/<address>', methods=['GET'])
+@cross_origin()
 def getSunroof_data(address):
     if request.method == 'GET':
         if db.session.query(SunRoof).filter(SunRoof.address == address).count() == 0:
