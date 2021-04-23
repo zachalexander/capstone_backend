@@ -298,7 +298,7 @@ def model(address):
         ####   The function below generates three TimeSeries objects over the time interval specified 
         ###    within the provided time interval. The TimeSeries track number of months with a positive 
         ##     balance, number of months with a negative balance and the overall balance throughout 
-        #      the interval
+        #      the intervals
             
         def run_simulation(system,upd_fxn):
             """Take a system as input and unpdate it based on the update function.
