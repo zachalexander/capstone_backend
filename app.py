@@ -19,14 +19,20 @@ from urllib.parse import quote
 import json
 from dotenv import load_dotenv
 import pandas as pd
+import re
 
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
-import pandas as pd
 import modsim
 from modsim import *
 import math
+import psycopg2
+import base64
+
+from bs4 import BeautifulSoup
+from googlesearch import search as gsearch
+import re
 
 load_dotenv()
 app = Flask(__name__)
@@ -74,10 +80,27 @@ class SunRoof(db.Model):
     __tablename__ = 'sunroof'
     address = db.Column(db.String(200), primary_key=True)
     estimate = db.Column(db.Integer)
+    screenshot = db.Column(db.LargeBinary)
 
-    def __init__(self, address, estimate):
+    def __init__(self, address, estimate, screenshot):
         self.address = address
         self.estimate = estimate
+        self.screenshot = screenshot
+
+class Realtor(db.Model):
+    __tablename__ = 'realtor'
+    address = db.Column(db.String(200), primary_key=True)
+    square_footage_house = db.Column(db.Integer)
+    year_built = db.Column(db.Integer)
+    bedrooms = db.Column(db.Integer)
+    bathrooms = db.Column(db.Integer)
+
+    def __init__(self, address, square_footage_house, year_built, bedrooms, bathrooms):
+        self.address = address
+        self.square_footage_house = square_footage_house
+        self.year_built = year_built
+        self.bedrooms = bedrooms
+        self.bathrooms = bathrooms
 
 def user_id(address):
     if db.session.query(User).filter(User.address == address).count() == 0:
@@ -92,12 +115,12 @@ def user_id(address):
 def model(address):
 
     if (db.session.query(User).filter(User.address == address).count() == 0):
-        return jsonify('we could not locate the input data')
+        return jsonify('We could not locate the input data')
     else:
         user_inputs = db.session.query(User).filter(User.address == address).first()
         
        
-        ##### START OF MISHAS CODE #####
+        ##### START OF MISHA'S CODE #####
     
         #############################################################################################
         ### Inputs we will need to get from the front-end:
@@ -450,8 +473,6 @@ def model(address):
     return response
 
 
-
-
 @app.route('/coords', methods=['POST'])
 def selenium_check():
     if request.method == "POST":
@@ -468,52 +489,139 @@ def selenium_check():
 
         json.dumps(coords_json)
 
-        CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
-        chrome_bin = os.environ.get('GOOGLE_CHROME_SHIM', None)
+        if db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0:
+            print('not in sunroof db!')
 
-        options = webdriver.ChromeOptions()
-        options.binary_location = chrome_bin
-        options.add_argument(" — disable-gpu")
-        options.add_argument(" — no-sandbox")
-        options.add_argument(" — headless")
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--remote-debugging-port=9222')
-        options.add_argument('--disable-infobars')
 
-        driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
-        driver.set_window_size(800,1000)
-        driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
-        
-        
-        square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.panel-fact-text')]
+            CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
+            chrome_bin = os.environ.get('GOOGLE_CHROME_SHIM', None)
 
-        # js_string = "let element = document.body.getElementsByClassName(\"main-content\")[0].getElementsByClassName(\"section-map\")[0].getElementsByClassName(\"address-map-panel\")[0].remove();document.body.getElementsByClassName(\"header-wrap\")[0].style.visibility = 'hidden';document.body.getElementsByClassName(\"main-content-wrapper\")[0].style['margin'] = '0px';document.body.getElementsByClassName(\"gmnoprint\")[0].style.visibility = 'hidden';"
-        # driver.execute_script(js_string)
-        # driver.execute_script("document.body.style.zoom='175%'")
-        # time.sleep(2)
-        # driver.save_screenshot("map_test.png")
-        # driver.close()
+            options = webdriver.ChromeOptions()
+            options.binary_location = chrome_bin
+            options.add_argument(" — disable-gpu")
+            options.add_argument(" — no-sandbox")
+            options.add_argument(" — headless")
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--remote-debugging-port=9222')
+            options.add_argument('--disable-infobars')
 
-        square_footage_available = square_footage_available[1]
-        square_footage_available = square_footage_available.split(' ')
-        square_footage_available = square_footage_available[0]
-        square_footage_available = ''.join(e for e in square_footage_available if e.isdigit() or e == '.')
+            driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
 
-        if (db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0):
-            sunroof_estimate = SunRoof(coords_json[0]['address'], square_footage_available)
-            db.session.add(sunroof_estimate)
-            db.session.commit()
+            # chrome_options = Options()
+            # chrome_options.add_argument("headless")
+            # driver = webdriver.Chrome(ChromeDriverManager(version="89.0.4389.23").install(), options=chrome_options)
+
+            driver.set_window_size(800,1000)
+            driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
+            
+            
+            square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.recommended-area')]
+
+            square_footage_available = re.sub('[()]', '', square_footage_available[0])
+            square_footage_available = square_footage_available[:-4]
+            square_footage_available = ''.join(e for e in square_footage_available if e.isdigit() or e == '.')
+
+            js_string = "let element = document.body.getElementsByClassName(\"main-content\")[0].getElementsByClassName(\"section-map\")[0].getElementsByClassName(\"address-map-panel\")[0].remove();document.body.getElementsByClassName(\"header-wrap\")[0].style.visibility = 'hidden';document.body.getElementsByClassName(\"main-content-wrapper\")[0].style['margin'] = '0px';document.body.getElementsByClassName(\"section-inner\")[0].style.visibility = 'hidden';"
+            driver.execute_script(js_string)
+            driver.execute_script("document.body.style.zoom='450%'")
+            time.sleep(2)
+
+            image_filename = "map_test.png"
+            driver.save_screenshot(image_filename)
+            driver.close()
+
+            if square_footage_available != "":
+                with open("map_test.png", "rb") as image:
+                    f = image.read()
+                    b = bytearray(f)
+
+                    if (db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0):
+                        sunroof_estimate = SunRoof(coords_json[0]['address'], square_footage_available, b)
+                        db.session.add(sunroof_estimate)
+                        db.session.commit()
+                    else:
+                        sunroof_estimate = db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).first()
+                        setattr(sunroof_estimate, square_footage_available, b)
+                        db.session.commit()
+            else:
+                print('cannot locate project sunroof data!')
+
+            # now check realtor db
+            if db.session.query(Realtor).filter(Realtor.address == coords_json[0]['address']).count() == 0:
+                print('not in realtor db either!')
+                realtor_add_list = coords_json[0]['address'].split(', ')
+
+                address = realtor_add_list[0]
+                city = realtor_add_list[1]
+                state = "NY"
+
+                searches = []
+                query = address +" "+city +", "+state+" Realtor.com"
+                for j in gsearch(query):
+                    result = j
+                    searches.append(result)
+
+                headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.11 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9', 'Accept-Encoding': 'identity'}
+                response=requests.get(searches[0],headers=headers)
+
+                soup=BeautifulSoup(response.content,'lxml')
+                house_data = soup.find(id="ldp-property-meta")
+                print(house_data)
+                if house_data != None:
+                    home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
+                    home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
+                    sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
+                    home_sqft = int(sqft_info.replace(',',''))
+                    year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
+
+                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                    db.session.add(realtor_estimate)
+                    db.session.commit()
+                else:
+                    print('cannot locate realtor data!')
+            else:
+                print('already in realtor but not sunroof!')
         else:
-            sunroof_estimate = db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).first()
-            setattr(sunroof_estimate, 'estimate', square_footage_available)
-            db.session.commit()
+            print('already in sunroof!')
+            if db.session.query(Realtor).filter(Realtor.address == coords_json[0]['address']).count() == 0:
+                print('already in sunroof but not realtor!')
+                realtor_add_list = coords_json[0]['address'].split(', ')
 
+                address = realtor_add_list[0]
+                city = realtor_add_list[1]
+                state = "NY"
+
+                searches = []
+                query = address +" "+city +", "+state+" Realtor.com"
+                for j in gsearch(query):
+                    result = j
+                    searches.append(result)
+
+                headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.11 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9', 'Accept-Encoding': 'identity'}
+                response=requests.get(searches[0],headers=headers)
+
+                soup=BeautifulSoup(response.content,'lxml')
+                house_data = soup.find(id="ldp-property-meta")
+
+                if house_data != None:
+
+                    home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
+                    home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
+                    sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
+                    home_sqft = int(sqft_info.replace(',',''))
+                    year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
+
+                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                    db.session.add(realtor_estimate)
+                    db.session.commit()
+                else:
+                    print('cannot locate realtor data!')
+            else:
+                print('already in realtor!')
+                print('address found in both databases!')
+            
     response = jsonify('success')
-    response.headers.add('Access-Control-Allow-Origin', '*')
-
-
     return response
-
 
 @app.route('/posts', methods=['POST'])
 def post_input():
@@ -539,20 +647,79 @@ def post_input():
 
     return response
 
-@app.route('/square-feet/<address>', methods=['GET'])
+@app.route('/scraped-data/<address>', methods=['GET'])
 def getSunroof_data(address):
+    final_response = None
     if request.method == 'GET':
         if db.session.query(SunRoof).filter(SunRoof.address == address).count() == 0:
-            return 'cannot find estimate'
+            if db.session.query(Realtor).filter(Realtor.address == address).count() == 0:
+                response = jsonify(
+                    {
+                        'estimate': None,
+                        'screenshot': None, 
+                        'square_footage': None,
+                        'year_built': None,
+                        'bedrooms': None,
+                        'bathrooms': None,
+                        'status': 'could not locate sunroof or realtor data!'
+                    }
+                )
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                final_response = response
+            else:
+                realtor_data = db.session.query(Realtor).filter(Realtor.address == address).first()
+
+                response = jsonify(
+                    {
+                        'estimate': None, 
+                        'screenshot': None, 
+                        'square_footage': realtor_data.square_footage_house,
+                        'year_built': realtor_data.year_built,
+                        'bedrooms': realtor_data.bedrooms,
+                        'bathrooms': realtor_data.bathrooms,
+                        'status': 'found realtor data but no sunroof data!'
+                    }
+                )
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                final_response = response
         else:
             estimate = db.session.query(SunRoof).filter(SunRoof.address == address).first()
-            print(estimate.estimate)
 
-    response = jsonify(estimate.estimate)
-    response.headers.add('Access-Control-Allow-Origin', '*')
+            byte_image = estimate.screenshot
+            base64EncodedStr = base64.b64encode(byte_image)
+            final_str = 'data:image/jpeg;base64,' + base64EncodedStr.decode('utf-8')
 
-    return response
+            if db.session.query(Realtor).filter(Realtor.address == address).count() == 0:
+                response = jsonify(
+                    {
+                        'estimate': estimate.estimate,
+                        'screenshot': final_str, 
+                        'square_footage': None,
+                        'year_built': None,
+                        'bedrooms': None,
+                        'bathrooms': None,
+                        'status': 'found sunroof data but no realtor data!'
+                    }
+                )
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                final_response = response
+            else:
+                realtor_data = db.session.query(Realtor).filter(Realtor.address == address).first()
 
+                response = jsonify(
+                    {
+                        'estimate': estimate.estimate, 
+                        'screenshot': final_str, 
+                        'square_footage': realtor_data.square_footage_house,
+                        'year_built': realtor_data.year_built,
+                        'bedrooms': realtor_data.bedrooms,
+                        'bathrooms': realtor_data.bathrooms,
+                        'status': 'found both sunroof and realtor data!'
+                    }
+                )
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                final_response = response
+    return final_response
 
 if __name__ == '__main__':
     app.run(debug=True)
