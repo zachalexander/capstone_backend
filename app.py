@@ -505,11 +505,11 @@ def selenium_check():
             options.add_argument('--remote-debugging-port=9222')
             options.add_argument('--disable-infobars')
 
-            driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
+            # driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
 
             # chrome_options = Options()
             # chrome_options.add_argument("headless")
-            # driver = webdriver.Chrome(ChromeDriverManager(version="89.0.4389.23").install(), options=chrome_options)
+            driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
             driver.set_window_size(800,1000)
             driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
