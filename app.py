@@ -34,6 +34,8 @@ from bs4 import BeautifulSoup
 from googlesearch import search as gsearch
 import re
 
+from fake_headers import Headers
+
 load_dotenv()
 app = Flask(__name__)
 
@@ -498,12 +500,12 @@ def selenium_check():
 
             options = webdriver.ChromeOptions()
             options.binary_location = chrome_bin
-            options.add_argument(" — disable-gpu")
-            options.add_argument(" — no-sandbox")
-            options.add_argument(" — headless")
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--remote-debugging-port=9222')
-            options.add_argument('--disable-infobars')
+            options.add_argument("disable-gpu")
+            options.add_argument("no-sandbox")
+            options.add_argument("headless")
+            options.add_argument('disable-dev-shm-usage')
+            options.add_argument('remote-debugging-port=9222')
+            options.add_argument('disable-infobars')
 
             # driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
 
@@ -517,38 +519,41 @@ def selenium_check():
             
             square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.recommended-area')]
 
-            square_footage_available = re.sub('[()]', '', square_footage_available[0])
-            square_footage_available = square_footage_available[:-4]
-            square_footage_available = ''.join(e for e in square_footage_available if e.isdigit() or e == '.')
+            if square_footage_available:
+                square_footage_available = re.sub('[()]', '', square_footage_available[0])
+                square_footage_available = square_footage_available[:-4]
+                square_footage_available = ''.join(e for e in square_footage_available if e.isdigit() or e == '.')
 
-            js_string = "let element = document.body.getElementsByClassName(\"main-content\")[0].getElementsByClassName(\"section-map\")[0].getElementsByClassName(\"address-map-panel\")[0].remove();document.body.getElementsByClassName(\"header-wrap\")[0].style.visibility = 'hidden';document.body.getElementsByClassName(\"main-content-wrapper\")[0].style['margin'] = '0px';document.body.getElementsByClassName(\"section-inner\")[0].style.visibility = 'hidden';"
-            driver.execute_script(js_string)
-            driver.execute_script("document.body.style.zoom='450%'")
-            time.sleep(2)
+                js_string = "let element = document.body.getElementsByClassName(\"main-content\")[0].getElementsByClassName(\"section-map\")[0].getElementsByClassName(\"address-map-panel\")[0].remove();document.body.getElementsByClassName(\"header-wrap\")[0].style.visibility = 'hidden';document.body.getElementsByClassName(\"main-content-wrapper\")[0].style['margin'] = '0px';document.body.getElementsByClassName(\"section-inner\")[0].style.visibility = 'hidden';"
+                driver.execute_script(js_string)
+                driver.execute_script("document.body.style.zoom='450%'")
+                time.sleep(2)
 
-            image_filename = "map_test.png"
-            driver.save_screenshot(image_filename)
-            driver.close()
+                image_filename = "map_test.png"
+                driver.save_screenshot(image_filename)
+                driver.close()
 
-            if square_footage_available != "":
-                with open("map_test.png", "rb") as image:
-                    f = image.read()
-                    b = bytearray(f)
+                if square_footage_available != "":
+                    with open("map_test.png", "rb") as image:
+                        f = image.read()
+                        b = bytearray(f)
 
-                    if (db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0):
-                        sunroof_estimate = SunRoof(coords_json[0]['address'], square_footage_available, b)
-                        db.session.add(sunroof_estimate)
-                        db.session.commit()
-                    else:
-                        sunroof_estimate = db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).first()
-                        setattr(sunroof_estimate, square_footage_available, b)
-                        db.session.commit()
+                        if (db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0):
+                            sunroof_estimate = SunRoof(coords_json[0]['address'], square_footage_available, b)
+                            db.session.add(sunroof_estimate)
+                            db.session.commit()
+                        else:
+                            sunroof_estimate = db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).first()
+                            setattr(sunroof_estimate, square_footage_available, b)
+                            db.session.commit()
+                else:
+                    print('cannot locate project sunroof data!')
             else:
                 print('cannot locate project sunroof data!')
 
             # now check realtor db
             if db.session.query(Realtor).filter(Realtor.address == coords_json[0]['address']).count() == 0:
-                print('not in realtor db either!')
+                print('not in realtor db!')
                 realtor_add_list = coords_json[0]['address'].split(', ')
 
                 address = realtor_add_list[0]
@@ -560,14 +565,16 @@ def selenium_check():
                 for j in gsearch(query):
                     result = j
                     searches.append(result)
+                
+                headers = Headers(os="mac", headers=True).generate()
 
-                headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.11 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9', 'Accept-Encoding': 'identity'}
                 response=requests.get(searches[0],headers=headers)
 
                 soup=BeautifulSoup(response.content,'lxml')
                 house_data = soup.find(id="ldp-property-meta")
-                print(house_data)
-                if house_data != None:
+            
+
+                if house_data != "":
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
                     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
@@ -596,14 +603,16 @@ def selenium_check():
                 for j in gsearch(query):
                     result = j
                     searches.append(result)
+                
+                print(searches)
 
-                headers = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.11 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9', 'Accept-Encoding': 'identity'}
-                response=requests.get(searches[0],headers=headers)
+                headers = Headers(os="mac", headers=True).generate()   
+                response=requests.get(searches[0], headers=headers)
 
                 soup=BeautifulSoup(response.content,'lxml')
                 house_data = soup.find(id="ldp-property-meta")
 
-                if house_data != None:
+                if house_data != "":
 
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
