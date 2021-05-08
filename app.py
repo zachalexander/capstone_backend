@@ -397,9 +397,6 @@ def model(address):
 
         azimuth_factor = a + (b*roof_azimuth) + (c*roof_azimuth**2) + (d*roof_azimuth**3) + (e*roof_azimuth**4)
 
-        print('google_azimuth', roof_azimuth)
-        print('azimuth_factor', azimuth_factor)
-
         #############################################################################################
 
 
@@ -462,6 +459,10 @@ def model(address):
         print('break even high', even_pt_hi)
 
         display = projection.to_dict(orient="records")
+
+        print(type(display))
+        display.append(even_pt_lo)
+        display.append(even_pt_hi)
         # parsed = json.loads(display)
         # json.dumps(parsed, indent=4)
         #############################################################################################
@@ -546,6 +547,7 @@ def selenium_check():
                             sunroof_estimate = db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).first()
                             setattr(sunroof_estimate, square_footage_available, b)
                             db.session.commit()
+                        print('sunroof data successfully in db!')
                 else:
                     print('cannot locate project sunroof data!')
             else:
@@ -572,9 +574,10 @@ def selenium_check():
 
                 soup=BeautifulSoup(response.content,'lxml')
                 house_data = soup.find(id="ldp-property-meta")
-            
 
-                if house_data != "":
+                print(soup.select_one('li[data-label="property-meta-beds"]'))
+
+                if soup.select_one('li[data-label="property-meta-beds"]') != None:
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
                     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
@@ -603,8 +606,6 @@ def selenium_check():
                 for j in gsearch(query):
                     result = j
                     searches.append(result)
-                
-                print(searches)
 
                 headers = Headers(os="mac", headers=True).generate()   
                 response=requests.get(searches[0], headers=headers)
@@ -612,7 +613,7 @@ def selenium_check():
                 soup=BeautifulSoup(response.content,'lxml')
                 house_data = soup.find(id="ldp-property-meta")
 
-                if house_data != "":
+                if soup.select_one('li[data-label="property-meta-beds"]') != None:
 
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
