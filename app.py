@@ -516,7 +516,7 @@ def selenium_check():
 
             driver.set_window_size(800,1000)
             driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
-            
+            driver.quit()
             
             square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.recommended-area')]
 
