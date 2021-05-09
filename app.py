@@ -496,22 +496,22 @@ def selenium_check():
             print('not in sunroof db!')
 
 
-            CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
-            chrome_bin = os.environ.get('GOOGLE_CHROME_SHIM', None)
+            # CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
+            chrome_bin = os.environ.get('GOOGLE_CHROME_BIN', None)
 
-            # options = webdriver.ChromeOptions()
-            # options.binary_location = chrome_bin
-            # options.add_argument("disable-gpu")
-            # options.add_argument("no-sandbox")
-            # options.add_argument("headless")
-            # options.add_argument('disable-dev-shm-usage')
-            # options.add_argument('remote-debugging-port=9222')
-            # options.add_argument('disable-infobars')
+            options = webdriver.ChromeOptions()
+            options.binary_location = chrome_bin
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--headless")
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--remote-debugging-port=9222')
+            options.add_argument('--disable-infobars')
 
-            driver = webdriver.Chrome(executable_path="chromedriver", chrome_options=options)
+            driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
 
-            chrome_options = Options()
-            chrome_options.add_argument("headless")
+            # chrome_options = Options()
+            # chrome_options.add_argument("headless")
             # driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
             driver.set_window_size(800,1000)
