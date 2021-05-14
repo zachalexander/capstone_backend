@@ -504,8 +504,8 @@ def model(address):
             even_pt_hi = math.ceil(max(intersect)/12)
 
             display = projection.to_dict(orient="records")
-            display.append(even_pt_lo)
-            display.append(even_pt_hi)
+            # display.append(even_pt_lo)
+            # display.append(even_pt_hi)
 
 
             print('model successfully ran!')
