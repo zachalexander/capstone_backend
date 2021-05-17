@@ -44,7 +44,7 @@ import itertools
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'prod'
+ENV = 'prod '
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
 REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
@@ -75,13 +75,15 @@ class User(db.Model):
     panel_area = db.Column(db.Integer)
     azimuth = db.Column(db.Integer)
     year_built = db.Column(db.Integer)
+    household_members = db.Column(db.Integer)
 
-    def __init__(self, address, sqr_footage, panel_area, azimuth, year_built):
+    def __init__(self, address, sqr_footage, panel_area, azimuth, year_built, household_members):
         self.address = address
         self.sqr_footage = sqr_footage
         self.panel_area = panel_area
         self.azimuth = azimuth
         self.year_built = year_built
+        self.household_members = household_members
 
 class SunRoof(db.Model):
     __tablename__ = 'sunroof'
@@ -662,7 +664,7 @@ def selenium_check():
                                 year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
                     else:
                         print('cannot locate year built info!')
-                    
+                        
                     if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
                         realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
                         db.session.add(realtor_estimate)
@@ -681,9 +683,14 @@ def selenium_check():
                         for i in child_soup:
                             if(i.find('span', attrs={'class': 'jsx-488154125 key'}).string == text):
                                 year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
+
+                                if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                                    db.session.add(realtor_estimate)
+                                    db.session.commit()
+                                    print('successfully saved realtor data!')
                     else:
                         year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
-
 
                     if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
                         realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
@@ -726,19 +733,55 @@ def selenium_check():
                 response=requests.get(searches[0], headers=headers)
 
                 soup=BeautifulSoup(response.content,'lxml')
-                house_data = soup.find(id="ldp-property-meta")
+                # house_data = soup.find(id="ldp-property-meta")
 
-                if soup.select_one('li[data-label="property-meta-beds"]') != None:
+                if (soup.find('li',attrs = {'data-label': 'property-meta-beds'}) == None and soup.select_one('li[data-label="pc-meta-beds"]') != None):
+                    home_bed = int(soup.find('li', attrs={'data-label': 'pc-meta-beds'}).find('span',attrs={'data-label': 'meta-value'}).contents[0])
+                    home_bath = float(soup.find('li', attrs={'data-label': 'pc-meta-baths'}).find('span',attrs={'data-label': 'meta-value'}).contents[0])
+                    sqft_info = soup.find('li', attrs={'data-label': 'pc-meta-sqft'}).find('span',attrs={'data-label': 'meta-value'}).contents[0]
+                    home_sqft = int(sqft_info.replace(',',''))
 
+                    if (soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'}) != None):
+                        child_soup = soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'})
+                        text = 'Year Built'
+                        for i in child_soup:
+                            if(i.find('span', attrs={'class': 'jsx-488154125 key'}).string == text):
+                                year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
+                    else:
+                        print('cannot locate year built info!')
+                        
+                    if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                        realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                        db.session.add(realtor_estimate)
+                        db.session.commit()
+                        print('successfully saved realtor data!')
+
+                elif (soup.select_one('li[data-label="property-meta-beds"]') != None):
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
                     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
                     home_sqft = int(sqft_info.replace(',',''))
-                    year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
 
-                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
-                    db.session.add(realtor_estimate)
-                    db.session.commit()
+                    if soup.select_one('li[data-label="property-year"]') == None:
+                        child_soup = soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'})
+                        text = 'Year Built'
+                        for i in child_soup:
+                            if(i.find('span', attrs={'class': 'jsx-488154125 key'}).string == text):
+                                year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
+
+                                if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                                    db.session.add(realtor_estimate)
+                                    db.session.commit()
+                                    print('successfully saved realtor data!')
+                    else:
+                        year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
+
+                    if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                        realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                        db.session.add(realtor_estimate)
+                        db.session.commit()
+                        print('successfully saved realtor data!')
                 else:
                     print('cannot locate realtor data!')
             else:
@@ -753,10 +796,11 @@ def post_input():
     if request.method == 'POST':
 
         frontend_input = request.get_json()
+        print(frontend_input['household_members'])
         jsonify(frontend_input)
 
         if db.session.query(User).filter(User.address == frontend_input['address']).count() == 0:
-            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'], frontend_input['year_built'])
+            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'], frontend_input['year_built'], frontend_input['household_members'])
             db.session.add(user)
             db.session.commit()
         else:
@@ -765,6 +809,7 @@ def post_input():
             setattr(user, 'panel_area', frontend_input['panel_area'])
             setattr(user, 'azimuth', frontend_input['azimuth'])
             setattr(user, 'year_built', frontend_input['year_built'])
+            setattr(user, 'household_members', frontend_input['household_members'])
             db.session.commit()
 
     response = jsonify('success')
