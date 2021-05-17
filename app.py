@@ -39,6 +39,7 @@ import re
 import timeit
 
 from fake_headers import Headers
+import itertools
 
 load_dotenv()
 app = Flask(__name__)
@@ -512,16 +513,23 @@ def model(address):
             # parsed = json.loads(display)
             # json.dumps(parsed, indent=4)
             #############################################################################################
-
-                        
+              
         ##### FINAL RETURN JSON #####
 
-        response = jsonify(display)
+        # response = jsonify(display)
+
+        payload = {
+            'model_data': display,
+            'high': even_pt_hi,
+            'low': even_pt_lo
+        }
+
+        response = jsonify(payload)
         response.headers.add('Access-Control-Allow-Origin', '*')
 
         return response
         
-    except (ValueError, KeyError, TypeError) as ex:
+    except (Exception, ValueError, KeyError, TypeError, IndexError) as ex:
         print(ex)
         response = jsonify('an error occurred while running the model!')
     return response
@@ -638,22 +646,64 @@ def selenium_check():
                 response=requests.get(searches[0],headers=headers)
 
                 soup=BeautifulSoup(response.content,'lxml')
-                house_data = soup.find(id="ldp-property-meta")
+                # house_data = soup.find(id="ldp-property-meta")
 
-                print(soup.select_one('li[data-label="property-meta-beds"]'))
+                if (soup.find('li',attrs = {'data-label': 'property-meta-beds'}) == None and soup.select_one('li[data-label="pc-meta-beds"]') != None):
+                    home_bed = int(soup.find('li', attrs={'data-label': 'pc-meta-beds'}).find('span',attrs={'data-label': 'meta-value'}).contents[0])
+                    home_bath = float(soup.find('li', attrs={'data-label': 'pc-meta-baths'}).find('span',attrs={'data-label': 'meta-value'}).contents[0])
+                    sqft_info = soup.find('li', attrs={'data-label': 'pc-meta-sqft'}).find('span',attrs={'data-label': 'meta-value'}).contents[0]
+                    home_sqft = int(sqft_info.replace(',',''))
 
-                if soup.select_one('li[data-label="property-meta-beds"]') != None:
+                    if (soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'}) != None):
+                        child_soup = soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'})
+                        text = 'Year Built'
+                        for i in child_soup:
+                            if(i.find('span', attrs={'class': 'jsx-488154125 key'}).string == text):
+                                year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
+                    else:
+                        print('cannot locate year built info!')
+                    
+                    if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                        realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                        db.session.add(realtor_estimate)
+                        db.session.commit()
+                        print('successfully saved realtor data!')
+
+                elif (soup.select_one('li[data-label="property-meta-beds"]') != None):
                     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
                     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
                     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
                     home_sqft = int(sqft_info.replace(',',''))
-                    year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
 
-                    realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
-                    db.session.add(realtor_estimate)
-                    db.session.commit()
+                    if soup.select_one('li[data-label="property-year"]') == None:
+                        child_soup = soup.find_all('li', attrs={'class': 'jsx-488154125 col-xs-6 col-md-4 indicator'})
+                        text = 'Year Built'
+                        for i in child_soup:
+                            if(i.find('span', attrs={'class': 'jsx-488154125 key'}).string == text):
+                                year_built = int(i.find('span', attrs={'class': 'jsx-488154125 value ellipsis'}).string)
+                    else:
+                        year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])
+
+
+                    if (home_sqft != None and year_built != None and home_bed != None and home_bath != None):
+                        realtor_estimate = Realtor(coords_json[0]['address'], home_sqft, year_built, home_bed, home_bath)
+                        db.session.add(realtor_estimate)
+                        db.session.commit()
+                        print('successfully saved realtor data!')
+                
                 else:
                     print('cannot locate realtor data!')
+                    pass
+                
+
+                # print(soup.select_one('li[data-label="property-meta-beds"]'))
+
+                # if soup.select_one('li[data-label="property-meta-beds"]') != None:
+                #     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
+                #     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
+                #     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
+                #     home_sqft = int(sqft_info.replace(',',''))
+                #     year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])   
             else:
                 print('already in realtor but not sunroof!')
         else:
