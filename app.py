@@ -140,6 +140,8 @@ def model(address):
             # roof_sqft = 850
             roof_sqft = user_inputs.panel_area
 
+            hhm = user_inputs.household_members
+
             #roof_azimuth angle needs to be from due South
             # roof_azimuth = 40
             roof_azimuth = user_inputs.azimuth
@@ -250,22 +252,36 @@ def model(address):
                 # should be set to zero if no info is available
                 if sqft == 0:
                     sqft_col = 0
+                elif sqft > 3499:
+                    sqft_col = 6
                 else:
                     sqft_col = math.floor((sqft-1000)/500+2)
-                sqft_month = SQFT_Ratios.iloc[month-1,sqft_col]
+                sqft_rat = SQFT_Ratio.iloc[0,sqft_col]
                 
                 # Year_Built Lookup
                 # should be set to zero if no info is available
                 if year == 0:
                     year_col = 0
+                elif year < 1940:
+                    year_col = 1
                 else:
                     year_col = math.floor((year-1950)/10+2)
-                built_month = YearBuilt_Ratios.iloc[month-1,year_col]
+                year_rat = YearBuilt_Ratio.iloc[0,year_col]
+
+                # Household Member
+                # should be set to zero if no info is available
+                if hhm == 0:
+                    hhm_col = 0
+                elif hhm > 6:
+                    hhm_col = 6
+                else:
+                    hhm_col = hhm
+                hhm_rat = HHM_Ratio.iloc[0,hhm_col]
+
+                ratio = sqft_rat * year_rat * hhm_rat
                 
-                #std_d = tot_monthly * 0.15
-                demand_month = (sqft_month+built_month)/2
-                #if demand_month < 0:
-                #    demand_month = 0
+                demand_month = Albany_Monthly_Use.iloc[month-1,0] * ratio
+           
                 return demand_month
 
 
@@ -392,13 +408,10 @@ def model(address):
             ### Data we pull locally
             Albany_Monthly_Use = pd.read_csv('./datafiles/Albany Monthly Average Use.csv')
             Albany_Monthly_Use = Albany_Monthly_Use.set_index(['Month'])
-            HHM_Ratios = pd.read_csv('./datafiles/Albany Monthly Average Use - HHM.csv')
-            YearBuilt_Ratios = pd.read_csv('./datafiles/Albany Monthly Average Use - YearBuilt.csv')
-            SQFT_Ratios = pd.read_csv('./datafiles/Albany Monthly Average Use - Sqft.csv')
+            HHM_Ratio = pd.read_csv('./datafiles/Northeast_HHM_Ratios.csv')
+            YearBuilt_Ratio = pd.read_csv('./datafiles/Northeast_Year_Ratios.csv')
+            SQFT_Ratio = pd.read_csv('./datafiles/Northeast_SQFT_Ratios.csv')
 
-            HHM_Ratios = HHM_Ratios.set_index(['Month'])
-            YearBuilt_Ratios = YearBuilt_Ratios.set_index(['Month'])
-            SQFT_Ratios = SQFT_Ratios.set_index(['Month'])
 
             # print(HHM_Ratios)
             # print(YearBuilt_Ratios)
@@ -556,7 +569,6 @@ def selenium_check():
         if db.session.query(SunRoof).filter(SunRoof.address == coords_json[0]['address']).count() == 0:
             print('not in sunroof db!')
 
-
             CHROMEDRIVER_PATH = "/app/.chromedriver/bin/chromedriver"
             chrome_bin = os.environ.get('GOOGLE_CHROME_BIN', None)
 
@@ -587,9 +599,6 @@ def selenium_check():
                 square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.panel-fact-text')]
 
                 if square_footage_available:
-                    # square_footage_available = re.sub('[()]', '', square_footage_available[0])
-                    # square_footage_available = square_footage_available[:-4]
-                    # square_footage_available = ''.join(e for e in square_footage_available if e.isdigit() or e == '.')
                     
                     square_footage_available = square_footage_available[1]
                     square_footage_available = square_footage_available.split(' ')
@@ -648,7 +657,6 @@ def selenium_check():
                 response=requests.get(searches[0],headers=headers)
 
                 soup=BeautifulSoup(response.content,'lxml')
-                # house_data = soup.find(id="ldp-property-meta")
 
                 if (soup.find('li',attrs = {'data-label': 'property-meta-beds'}) == None and soup.select_one('li[data-label="pc-meta-beds"]') != None):
                     home_bed = int(soup.find('li', attrs={'data-label': 'pc-meta-beds'}).find('span',attrs={'data-label': 'meta-value'}).contents[0])
@@ -701,16 +709,6 @@ def selenium_check():
                 else:
                     print('cannot locate realtor data!')
                     pass
-                
-
-                # print(soup.select_one('li[data-label="property-meta-beds"]'))
-
-                # if soup.select_one('li[data-label="property-meta-beds"]') != None:
-                #     home_bed = int(soup.select_one('li[data-label="property-meta-beds"]').find_all("span", class_="data-value")[0].contents[0])
-                #     home_bath = float(soup.select_one('li[data-label="property-meta-bath"]').find_all("span", class_="data-value")[0].contents[0])
-                #     sqft_info= soup.select_one('li[data-label="property-meta-sqft"]').find_all("span", class_="data-value")[0].contents[0]
-                #     home_sqft = int(sqft_info.replace(',',''))
-                #     year_built = int(soup.select_one('li[data-label="property-year"]').find_all("div", class_="key-fact-data ellipsis")[0].contents[0])   
             else:
                 print('already in realtor but not sunroof!')
         else:
