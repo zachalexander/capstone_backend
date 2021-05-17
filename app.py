@@ -44,7 +44,7 @@ import itertools
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'prod '
+ENV = 'dev'
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
 REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
@@ -303,17 +303,11 @@ def model(address):
                 elif month_mod in [4,6,9,11]:
                     days = 30
                 elif month_mod == 2:
-                    #if year % 4 == 0:
-                    #    days = 29
-                    #else:
-                        days = 28
+                    days = 28
                 else:
                     print("Not a valid month number")
                     return None
                 
-                #p = 0
-                #n = 0
-                #balance = 0
                 gain = 0
 
                 pr_fac = yearly_increase**year * price
@@ -325,12 +319,6 @@ def model(address):
                     gain  = gain + days_yield(system,month_mod,day,daily_bool)
                 
                 gain = gain * pr_fac
-                #balance = (gain-loss)*pr 
-
-                #if balance >= 0:
-                #    p = 1
-                #else:
-                #    n = 1
 
                 this_month = State(P = gain, C = loss)
                 return this_month
@@ -349,9 +337,6 @@ def model(address):
                 month_result = calc_month(system, month)
 
                 p += month_result.P
-                #n += month_result.N
-                #pb += month_result.B
-                #b += month_result.B
                 c += month_result.C
 
                 return State(P = p, C = c)
@@ -373,9 +358,6 @@ def model(address):
                 returns - Timeseries
                 """
                 P = TimeSeries()
-                #N = TimeSeries()
-                #PB = TimeSeries()
-                #B = TimeSeries()
                 C = TimeSeries()
 
                 state = system.start
@@ -413,13 +395,6 @@ def model(address):
             SQFT_Ratio = pd.read_csv('./datafiles/Northeast_SQFT_Ratios.csv')
 
 
-            # print(HHM_Ratios)
-            # print(YearBuilt_Ratios)
-            # print(SQFT_Ratios)
-
-            # convert sq ft to sq m
-
-
             #%%timeit
             #convert sq ft to sq m
             roof_A = float(roof_sqft) * 0.092903
@@ -438,8 +413,8 @@ def model(address):
 
             low_r_bound = 0.175
             high_r_bound = 0.2
-            low_initial_cost = 15000
-            high_initial_cost = 25000
+            low_initial_cost = 12000
+            high_initial_cost = 20000
 
             cap_1 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(low_r_bound)
             cap_2 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(high_r_bound)
@@ -502,31 +477,29 @@ def model(address):
                 if r[cap_4] > r['Regular Grid Service'] and test4:
                     intersect.append(i)
                     test4 = 0
-                if (r['Regular Grid Service']-r[cap_1])/25000 < 0.4 and test60_1:
+                if (r['Regular Grid Service']-r[cap_1])/high_initial_cost < 0.4 and test60_1:
                     find_60.append(i)
                     test60_1 = 0
-                if (r['Regular Grid Service']-r[cap_2])/25000 < 0.4 and test60_2:
+                if (r['Regular Grid Service']-r[cap_2])/high_initial_cost < 0.4 and test60_2:
                     find_60.append(i)
                     test60_2 = 0
-                if (r['Regular Grid Service']-r[cap_3])/15000 < 0.4 and test60_3:
+                if (r['Regular Grid Service']-r[cap_3])/low_initial_cost < 0.4 and test60_3:
                     find_60.append(i)
                     test60_3 = 0
-                if (r['Regular Grid Service']-r[cap_4])/15000 < 0.4 and test60_4:
+                if (r['Regular Grid Service']-r[cap_4])/low_initial_cost < 0.4 and test60_4:
                     find_60.append(i)
                     test60_4 = 0
 
-            #############################################################################################
-            even_pt_lo = math.ceil(min(intersect)/12)
-            even_pt_hi = math.ceil(max(intersect)/12)
+            if (intersect == []):
+                even_pt_hi = None
+                even_pt_lo = None
+            else:
+                even_pt_lo = math.ceil(min(intersect)/12)
+                even_pt_hi = math.ceil(max(intersect)/12)
 
             display = projection.to_dict(orient="records")
-            # display.append(even_pt_lo)
-            # display.append(even_pt_hi)
-
 
             print('model successfully ran!')
-            # parsed = json.loads(display)
-            # json.dumps(parsed, indent=4)
             #############################################################################################
               
         ##### FINAL RETURN JSON #####
@@ -584,10 +557,10 @@ def selenium_check():
             try: 
 
                 # FOR PROD
-                driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
+                # driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
                 
                 # # FOR DEV
-                # driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
                 # chrome_options = Options()
                 # chrome_options.add_argument("headless")
