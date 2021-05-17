@@ -44,7 +44,7 @@ import itertools
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'dev'
+ENV = 'prod'
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
 REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
@@ -135,9 +135,7 @@ def model(address):
         
             #############################################################################################
             ### Inputs we will need to get from the front-end:
-            # sqft = 2400
             sqft = user_inputs.sqr_footage
-            # roof_sqft = 850
             roof_sqft = user_inputs.panel_area
 
             hhm = user_inputs.household_members
@@ -151,12 +149,12 @@ def model(address):
             # print(roof_sqft)
             # print(roof_azimuth)
             # print(roof_m)
+            print(hhm)
 
             #Daily_bool below directs whether to use stock Albany data or pull from NSRDB API (True = stock)
             daily_bool = True
 
             Year_Blt = user_inputs.year_built
-            # Year_Blt = 1973
             price = 0.1827
 
             #coordinates of Albany, NY (29.42412, -98.49363)
@@ -212,8 +210,6 @@ def model(address):
                 t0 = 0
                 '''15 years worth of operation'''
                 t_end = sim_years*12
-
-                # sim_years?
 
                 return System(start=start, t0=t0, t_end=t_end, A=A, PR=PR, lat=lat, long=long, azim = azim)
 
