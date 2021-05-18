@@ -43,7 +43,7 @@ import itertools
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'prod'
+ENV = 'dev'
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
 REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
@@ -445,7 +445,7 @@ def model(address):
             projection[cap_3 + '_value'] = projection[cap_3] - projection['Regular Grid Service']
             projection[cap_4 + '_value'] = projection[cap_4] - projection['Regular Grid Service']
 
-            print(projection)
+            value = projection[::12]
             #############################################################################################
 
 
@@ -498,6 +498,7 @@ def model(address):
                 even_pt_hi = math.ceil(max(intersect)/12)
 
             display = projection.to_dict(orient="records")
+            value_display = value.to_dict(orient="records")
 
             print('model successfully ran!')
             #############################################################################################
@@ -509,7 +510,8 @@ def model(address):
         payload = {
             'model_data': display,
             'high': even_pt_hi,
-            'low': even_pt_lo
+            'low': even_pt_lo,
+            'value_data': value_display
         }
 
         response = jsonify(payload)
@@ -557,10 +559,10 @@ def selenium_check():
             try: 
 
                 # FOR PROD
-                driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
+                # driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
                 
                 # # FOR DEV
-                # driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
                 
                 driver.set_window_size(800,1000)
 
