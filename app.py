@@ -19,7 +19,6 @@ from urllib.parse import quote
 import json
 from dotenv import load_dotenv
 import pandas as pd
-import re
 
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
@@ -431,8 +430,7 @@ def model(address):
             ### Combining the data from four systems above
             projection = pd.concat([FB,FB2,FB3,FB4,C], axis =1)
             #############################################################################################
-
-
+  
             #############################################################################################
             ### Column names below need to be either adjusted to match or automated to cover plotted systems
 
@@ -442,6 +440,12 @@ def model(address):
             year = [i/12 for i in range(12*sim_years+1)]
             projection['year'] = list(year)
             projection.set_index('year', inplace = False)
+            projection[cap_1 + '_value'] = projection[cap_1] - projection['Regular Grid Service']
+            projection[cap_2 + '_value'] = projection[cap_2] - projection['Regular Grid Service']
+            projection[cap_3 + '_value'] = projection[cap_3] - projection['Regular Grid Service']
+            projection[cap_4 + '_value'] = projection[cap_4] - projection['Regular Grid Service']
+
+            print(projection)
             #############################################################################################
 
 
@@ -553,15 +557,17 @@ def selenium_check():
             try: 
 
                 # FOR PROD
-                # driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
+                driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
                 
                 # # FOR DEV
-                driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                # driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                
+                driver.set_window_size(800,1000)
 
                 # chrome_options = Options()
                 # chrome_options.add_argument("headless")
+         
 
-                driver.set_window_size(800,1000)
                 driver.get('https://www.google.com/get/sunroof/building/' + str(coords_json[0]['latitude']) + '/' + str(coords_json[0]['longitude']) + '/#?f=buy')
                 
                 # square_footage_available = [e.text for e in driver.find_elements_by_css_selector('.recommended-area')]
