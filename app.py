@@ -43,7 +43,7 @@ import itertools
 load_dotenv()
 app = Flask(__name__)
 
-ENV = 'dev'
+ENV = 'prod'
 
 LOCAL_DB_URL = 'postgresql://postgres:NewYork512@localhost:5432/capstone'
 REMOTE_DB_URL = 'postgres://zqeqylqmnbbtsq:9752c59faf5674de11c547657c271f826781f010d7a3355e4a7a644a62c8d5ac@ec2-3-217-219-146.compute-1.amazonaws.com:5432/dcghtng3l8p37g'
@@ -559,10 +559,10 @@ def selenium_check():
             try: 
 
                 # FOR PROD
-                # driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
+                driver = webdriver.Chrome(executable_path=os.environ.get('CHROMEDRIVER_PATH'), chrome_options=options)
                 
                 # # FOR DEV
-                driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                # driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
                 
                 driver.set_window_size(800,1000)
 
