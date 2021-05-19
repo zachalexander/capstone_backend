@@ -136,23 +136,9 @@ def model(address):
             ### Inputs we will need to get from the front-end:
             sqft = user_inputs.sqr_footage
             roof_sqft = user_inputs.panel_area
-
-            hhm = user_inputs.household_members
-
-            #roof_azimuth angle needs to be from due South
-            # roof_azimuth = 40
+            HHM = user_inputs.household_members
             roof_azimuth = user_inputs.azimuth
             roof_m = float(roof_sqft) * 0.092903
-
-            # print(sqft)
-            # print(roof_sqft)
-            # print(roof_azimuth)
-            # print(roof_m)
-            print(hhm)
-
-            #Daily_bool below directs whether to use stock Albany data or pull from NSRDB API (True = stock)
-            daily_bool = True
-
             Year_Blt = user_inputs.year_built
             price = 0.1827
 
@@ -160,6 +146,9 @@ def model(address):
             la=29.42412
             lo=-98.49363
 
+
+            #Daily_bool below directs whether to use stock Albany data or pull from NSRDB API (True = stock)
+            daily_bool = True
 
             #### FUNCTION DECLARATIONS ####
 
@@ -205,7 +194,7 @@ def model(address):
             def define_system(A=80,PR=0.8,lat=29.42412,long=-98.49363, azim = 1):
                 '''Create a system object defining our solar panel system
                 '''
-                start = State(P = 0, C = 0)
+                start = State(P = 0, C = 0, Y=0)
                 t0 = 0
                 '''15 years worth of operation'''
                 t_end = sim_years*12
@@ -241,9 +230,8 @@ def model(address):
                     ghi_day = 0
                 return (system.A*ghi_day*system.PR*system.azim)/1000
 
-
-            def month_demand_norm(month,sqft=0,year=0):
-                # Sqft Lookup
+            def find_ratio(sqft, year_blt):
+                #Sqft Lookup
                 # should be set to zero if no info is available
                 if sqft == 0:
                     sqft_col = 0
@@ -251,32 +239,37 @@ def model(address):
                     sqft_col = 6
                 else:
                     sqft_col = math.floor((sqft-1000)/500+2)
-                sqft_rat = SQFT_Ratio.iloc[0,sqft_col]
-                
+                sqft_rat = SQFT_Ratio.iloc[0, sqft_col]
+
                 # Year_Built Lookup
                 # should be set to zero if no info is available
-                if year == 0:
+                if year_blt == 0:
                     year_col = 0
-                elif year < 1940:
-                    year_col = 1
-                else:
-                    year_col = math.floor((year-1950)/10+2)
+                else: 
+                    if year_blt < 1940:
+                        year_col = 1
+                    else:
+                        year_col = math.floor((year_blt-1950)/10+2)
                 year_rat = YearBuilt_Ratio.iloc[0,year_col]
 
                 # Household Member
                 # should be set to zero if no info is available
-                if hhm == 0:
+                if HHM == 0:
                     hhm_col = 0
-                elif hhm > 6:
+                elif HHM > 6:
                     hhm_col = 6
                 else:
-                    hhm_col = hhm
+                    hhm_col = HHM
                 hhm_rat = HHM_Ratio.iloc[0,hhm_col]
 
                 ratio = sqft_rat * year_rat * hhm_rat
-                
+                return ratio
+
+
+            def month_demand_norm(month,sqft=0,year=0, hhm=0):
+
+                ratio = find_ratio(sqft, year)               
                 demand_month = Albany_Monthly_Use.iloc[month-1,0] * ratio
-           
                 return demand_month
 
 
@@ -303,19 +296,20 @@ def model(address):
                     print("Not a valid month number")
                     return None
                 
+                yld = 0
                 gain = 0
 
                 pr_fac = yearly_increase**year * price
                 
                 #make sure if we don't have year or sqft they are set to proper values for default calc
-                loss = month_demand_norm(month_mod,sqft,Year_Blt) * pr_fac
+                loss = month_demand_norm(month_mod,sqft,Year_Blt, HHM) * pr_fac
                 
                 for day in range(1,days+1):
-                    gain  = gain + days_yield(system,month_mod,day,daily_bool)
+                    yld  = yld + days_yield(system,month_mod,day,daily_bool)
                 
-                gain = gain * pr_fac
+                gain = yld * pr_fac
 
-                this_month = State(P = gain, C = loss)
+                this_month = State(P = gain, C = loss, Y = yld)
                 return this_month
                 
             #############################################################################################
@@ -327,14 +321,15 @@ def model(address):
                 state: State with variables PB, FB, C
                 system: System with relevant info
                 '''
-                p, c = state
+                p, c, y = state
 
                 month_result = calc_month(system, month)
 
                 p += month_result.P
                 c += month_result.C
+                y = month_result.Y
 
-                return State(P = p, C = c)
+                return State(P = p, C = c, Y = y)
 
 
             ############################################################################################
@@ -354,16 +349,17 @@ def model(address):
                 """
                 P = TimeSeries()
                 C = TimeSeries()
+                Y = TimeSeries()
 
                 state = system.start
                 t0 = system.t0
-                P[t0], C[t0] = state
+                P[t0], C[t0], Y[t0] = state
 
                 for t in linrange(system.t0, system.t_end):
                     state = upd_fxn(state,system,t)
-                    P[t+1], C[t+1] = state
+                    P[t+1], C[t+1], Y[t+1] = state
 
-                return P, -C
+                return P, -C, Y
                 
             #############################################################################################
             
@@ -374,7 +370,6 @@ def model(address):
                 ## Data from the NSRDB. Daily data for Albany coordinates going back to 1998
                 #  To be used as default data instead of querying the API
                 Albany_GHI = pd.read_csv('./datafiles/Albany_GHI_Data.csv')
-
                 Albany_GHI = Albany_GHI[['Month','Day','Mean','StDev']]
                 Albany_GHI = Albany_GHI.set_index(['Month','Day'])
             else:
@@ -406,10 +401,10 @@ def model(address):
             azimuth_factor = a + (b*roof_azimuth) + (c*roof_azimuth**2) + (d*roof_azimuth**3) + (e*roof_azimuth**4)
             #############################################################################################
 
-            low_r_bound = 0.175
-            high_r_bound = 0.2
-            low_initial_cost = 12000
-            high_initial_cost = 20000
+            low_r_bound = 0.15
+            high_r_bound = 0.19
+            low_initial_cost = 15000
+            high_initial_cost = 25000
 
             cap_1 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(low_r_bound)
             cap_2 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(high_r_bound)
@@ -421,7 +416,7 @@ def model(address):
             ##  Can be adjusted to plot desired systems
 
             system = define_system(A=roof_A, lat=la, long=lo, azim= azimuth_factor)
-            P, C = run_simulation(system,update_fxn)
+            P, C, Y = run_simulation(system,update_fxn)
             FB = (P*low_r_bound - high_initial_cost) + C
             FB2 = (P*high_r_bound - high_initial_cost) + C
             FB3 = (P*low_r_bound - low_initial_cost) + C
@@ -491,14 +486,50 @@ def model(address):
                     test60_4 = 0
 
             if (intersect == []):
+                break_even_range = 0
                 even_pt_hi = None
                 even_pt_lo = None
             else:
+                break_even_range = 1
                 even_pt_lo = math.ceil(min(intersect)/12)
                 even_pt_hi = math.ceil(max(intersect)/12)
 
+        
+            low_yearly_yield = []
+            high_yearly_yield = []
+            Y_monthly = pd.DataFrame(Y, columns = ['Yield'])
+            Y_monthly = Y_monthly.iloc[1:, :]
+            month_idx = [1,2,3,4,5,6,7,8,9,10,11,12]
+            months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+            Y_monthly = Y_monthly.assign(Month = month_idx * sim_years)
+
+            for i in range(0, Y.shape[0]):
+                if (i%12 == 0) & (i != 0):
+                    low_yearly_yield.append(sum(Y[i-12:i]) * low_r_bound)
+                    high_yearly_yield.append(sum(Y[i-12:i]) * high_r_bound)
+            Y_monthly = Y_monthly.groupby(['Month']).mean()
+
+            Y_monthly= Y_monthly.groupby(['Month']).mean()
+            Y_monthlyL = Y_monthly.copy()
+            Y_monthlyL['Yield'] = Y_monthlyL['Yield'] * low_r_bound
+            Y_monthlyL['Efficiency'] = 'Low'
+            Y_monthlyH = Y_monthly.copy()
+            Y_monthlyH['Yield'] = Y_monthlyH['Yield'] * high_r_bound
+            Y_monthlyH['Efficiency'] = 'High'
+            Y_month = Y_monthlyL.append(Y_monthlyH)
+            Y_month = Y_month.sort_values(by=['Month'])
+            Y_month = Y_month.reset_index()
+
+
+            ratio = find_ratio(sqft, Year_Blt)
+            energy_usage = Albany_Monthly_Use['Usage'] * ratio
+            energy_usage = pd.DataFrame({'usage': energy_usage})
+            energy_usage = energy_usage.reset_index()
+
             display = projection.to_dict(orient="records")
             value_display = value.to_dict(orient="records")
+            y_month = Y_month.to_dict(orient="records")
+            energy_usage = energy_usage.to_dict(orient="records")
 
             print('model successfully ran!')
             #############################################################################################
@@ -511,7 +542,9 @@ def model(address):
             'model_data': display,
             'high': even_pt_hi,
             'low': even_pt_lo,
-            'value_data': value_display
+            'value_data': value_display,
+            'monthly_yield': y_month,
+            'energy_usage': energy_usage
         }
 
         response = jsonify(payload)
