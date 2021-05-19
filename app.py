@@ -403,8 +403,8 @@ def model(address):
 
             low_r_bound = 0.15
             high_r_bound = 0.19
-            low_initial_cost = 15000
-            high_initial_cost = 25000
+            low_initial_cost = 12000
+            high_initial_cost = 20000
 
             cap_1 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(low_r_bound)
             cap_2 = "I=$" + str(int(high_initial_cost/1000)) + "k, r="+ str(high_r_bound)
@@ -519,17 +519,19 @@ def model(address):
             Y_month = Y_monthlyL.append(Y_monthlyH)
             Y_month = Y_month.sort_values(by=['Month'])
             Y_month = Y_month.reset_index()
-
+            Y_month = Y_month.pivot_table(index=["Month"], columns='Efficiency', values='Yield')
 
             ratio = find_ratio(sqft, Year_Blt)
             energy_usage = Albany_Monthly_Use['Usage'] * ratio
             energy_usage = pd.DataFrame({'usage': energy_usage})
             energy_usage = energy_usage.reset_index()
 
+            tot_energy = pd.merge(energy_usage, Y_month, how="left", on=["Month"])
+            # tot_energy = tot_energy.pivot(index='Month',columns='usage')[['Yield','Efficiency']]
+
             display = projection.to_dict(orient="records")
             value_display = value.to_dict(orient="records")
-            y_month = Y_month.to_dict(orient="records")
-            energy_usage = energy_usage.to_dict(orient="records")
+            tot_energy = tot_energy.to_dict(orient="records")
 
             print('model successfully ran!')
             #############################################################################################
@@ -543,8 +545,7 @@ def model(address):
             'high': even_pt_hi,
             'low': even_pt_lo,
             'value_data': value_display,
-            'monthly_yield': y_month,
-            'energy_usage': energy_usage
+            'energy_data': tot_energy
         }
 
         response = jsonify(payload)
