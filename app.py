@@ -75,14 +75,16 @@ class User(db.Model):
     azimuth = db.Column(db.Integer)
     year_built = db.Column(db.Integer)
     household_members = db.Column(db.Integer)
+    ratio = db.Column(db.Numeric)
 
-    def __init__(self, address, sqr_footage, panel_area, azimuth, year_built, household_members):
+    def __init__(self, address, sqr_footage, panel_area, azimuth, year_built, household_members, ratio):
         self.address = address
         self.sqr_footage = sqr_footage
         self.panel_area = panel_area
         self.azimuth = azimuth
         self.year_built = year_built
         self.household_members = household_members
+        self.ratio = ratio
 
 class SunRoof(db.Model):
     __tablename__ = 'sunroof'
@@ -140,7 +142,8 @@ def model(address):
             roof_azimuth = user_inputs.azimuth
             roof_m = float(roof_sqft) * 0.092903
             Year_Blt = user_inputs.year_built
-            price = 0.1827
+            ratio_update = user_inputs.ratio
+            price = 0.1174
 
             #coordinates of Albany, NY (29.42412, -98.49363)
             la=29.42412
@@ -269,7 +272,7 @@ def model(address):
             def month_demand_norm(month,sqft=0,year=0, hhm=0):
 
                 ratio = find_ratio(sqft, year)               
-                demand_month = Albany_Monthly_Use.iloc[month-1,0] * ratio
+                demand_month = Albany_Monthly_Use.iloc[month-1,0] * ratio * float(ratio_update)
                 return demand_month
 
 
@@ -522,7 +525,7 @@ def model(address):
             Y_month = Y_month.pivot_table(index=["Month"], columns='Efficiency', values='Yield')
 
             ratio = find_ratio(sqft, Year_Blt)
-            energy_usage = Albany_Monthly_Use['Usage'] * ratio
+            energy_usage = Albany_Monthly_Use['Usage'] * ratio * float(ratio_update)
             energy_usage = pd.DataFrame({'usage': energy_usage})
             energy_usage = energy_usage.reset_index()
 
@@ -805,11 +808,10 @@ def post_input():
     if request.method == 'POST':
 
         frontend_input = request.get_json()
-        print(frontend_input['household_members'])
         jsonify(frontend_input)
 
         if db.session.query(User).filter(User.address == frontend_input['address']).count() == 0:
-            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'], frontend_input['year_built'], frontend_input['household_members'])
+            user = User(frontend_input['address'], frontend_input['house_footage'], frontend_input['panel_area'], frontend_input['azimuth'], frontend_input['year_built'], frontend_input['household_members'], frontend_input['ratio'])
             db.session.add(user)
             db.session.commit()
         else:
@@ -819,6 +821,7 @@ def post_input():
             setattr(user, 'azimuth', frontend_input['azimuth'])
             setattr(user, 'year_built', frontend_input['year_built'])
             setattr(user, 'household_members', frontend_input['household_members'])
+            setattr(user, 'ratio', frontend_input['ratio'])
             db.session.commit()
 
     response = jsonify('success')
